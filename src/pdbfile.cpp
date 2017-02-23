@@ -319,7 +319,9 @@ struct PDBFileReader::SectionContrib
   DWORD Length;
   DWORD Compiland;
   sInt Type;
+#ifdef ENABLE_MODULES
   sInt ObjFile;
+#endif
 };
 
 const PDBFileReader::SectionContrib *PDBFileReader::ContribFromSectionOffset(sU32 sec,sU32 offs)
@@ -353,7 +355,7 @@ static sChar *BStrToString( BSTR str, sChar *defString = "", bool stripWhitespac
 {
   if(!str)
   {
-    sInt len = sGetStringLen(defString);
+    sInt len = strlen(defString);
     sChar *buffer = new sChar[len+1];
     sCopyString(buffer,len+1,defString,len+1);
 
@@ -416,7 +418,7 @@ void PDBFileReader::ProcessSymbol(IDiaSymbol *symbol,DebugInfo &to)
     if( symbol->get_type(&type) == S_OK ) // no SUCCEEDED test as may return S_FALSE!
     {
       if( FAILED(type->get_length(&length)) )
-	length = 0;
+        length = 0;
       type->Release();
     }
     else
@@ -429,7 +431,9 @@ void PDBFileReader::ProcessSymbol(IDiaSymbol *symbol,DebugInfo &to)
 
   if(contrib)
   {
+#ifdef ENABLE_MODULES
     objFile = contrib->ObjFile;
+#endif
     sectionType = contrib->Type;
   }
 
@@ -444,11 +448,15 @@ void PDBFileReader::ProcessSymbol(IDiaSymbol *symbol,DebugInfo &to)
   DISymbol *outSym = &to.Symbols.back();
   outSym->mangledName = to.MakeString(nameStr);
   outSym->name = to.MakeString(undNameStr);
+#ifdef ENABLE_MODULES
   outSym->objFileNum = objFile;
+#endif
   outSym->VA = rva;
   outSym->Size = (sU32) length;
   outSym->Class = sectionType;
+#ifdef ENABLE_NAMESPACE
   outSym->NameSpNum = to.GetNameSpaceByName(nameStr);
+#endif
 
   // clean up
   delete[] nameStr;
@@ -490,36 +498,38 @@ void PDBFileReader::ReadEverything(DebugInfo &to)
         item->get_length(&contrib.Length);
         item->get_compilandId(&contrib.Compiland);
 
-	BOOL code=FALSE,initData=FALSE,uninitData=FALSE;
-	item->get_code(&code);
-	item->get_initializedData(&initData);
-	item->get_uninitializedData(&uninitData);
+        BOOL code=FALSE,initData=FALSE,uninitData=FALSE;
+        item->get_code(&code);
+        item->get_initializedData(&initData);
+        item->get_uninitializedData(&uninitData);
 
-	if(code && !initData && !uninitData)
-	  contrib.Type = DIC_CODE;
-	else if(!code && initData && !uninitData)
-	  contrib.Type = DIC_DATA;
-	else if(!code && !initData && uninitData)
-	  contrib.Type = DIC_BSS;
-	else
-	  contrib.Type = DIC_UNKNOWN;
+        if(code && !initData && !uninitData)
+          contrib.Type = DIC_CODE;
+        else if(!code && initData && !uninitData)
+          contrib.Type = DIC_DATA;
+        else if(!code && !initData && uninitData)
+          contrib.Type = DIC_BSS;
+        else
+          contrib.Type = DIC_UNKNOWN;
 
-	BSTR objFileName = 0;
-	
-	IDiaSymbol *compiland = 0;
-	item->get_compiland(&compiland);
-	if(compiland)
-	{
-	  compiland->get_name(&objFileName);
-	  compiland->Release();
-	}
+#ifdef ENABLE_MODULES
+        BSTR objFileName = 0;
+        
+        IDiaSymbol *compiland = 0;
+        item->get_compiland(&compiland);
+        if(compiland)
+        {
+          compiland->get_name(&objFileName);
+          compiland->Release();
+        }
 
-	sChar *objFileStr = BStrToString(objFileName,"<noobjfile>");
-	contrib.ObjFile = to.GetFileByName(objFileStr);
+        sChar *objFileStr = BStrToString(objFileName,"<noobjfile>");
+        contrib.ObjFile = to.GetFileByName(objFileStr);
 
-	delete[] objFileStr;
-	if(objFileName)
-	  SysFreeString(objFileName);
+        delete[] objFileStr;
+        if(objFileName)
+          SysFreeString(objFileName);
+#endif
 
         item->Release();
       }
@@ -620,24 +630,24 @@ sBool PDBFileReader::ReadDebugInfo(sChar *fileName,DebugInfo &to)
       HMODULE hDIADll = LoadLibrary(DLLs[i].Filename);
       if(hDIADll)
       {
-	typedef HRESULT (__stdcall *PDllGetClassObject)(REFCLSID rclsid,REFIID riid,void** ppvObj);
-	PDllGetClassObject DllGetClassObject = (PDllGetClassObject) GetProcAddress(hDIADll,"DllGetClassObject");
-	if(DllGetClassObject)
-	{
-	  // first create a class factory
+        typedef HRESULT (__stdcall *PDllGetClassObject)(REFCLSID rclsid,REFIID riid,void** ppvObj);
+        PDllGetClassObject DllGetClassObject = (PDllGetClassObject) GetProcAddress(hDIADll,"DllGetClassObject");
+        if(DllGetClassObject)
+        {
+          // first create a class factory
           IClassFactory *classFactory;
-	  hr = DllGetClassObject(DLLs[i].UseCLSID,IID_IClassFactory,(void**) &classFactory);
-	  if(SUCCEEDED(hr))
-	  {
-	    hr = classFactory->CreateInstance(0,__uuidof(IDiaDataSource),(void**) &source);
-	    classFactory->Release();
-	  }
-	}
+          hr = DllGetClassObject(DLLs[i].UseCLSID,IID_IClassFactory,(void**) &classFactory);
+          if(SUCCEEDED(hr))
+          {
+            hr = classFactory->CreateInstance(0,__uuidof(IDiaDataSource),(void**) &source);
+            classFactory->Release();
+          }
+        }
 
-	if(SUCCEEDED(hr))
-	  break;
-	else
-	  FreeLibrary(hDIADll);
+        if(SUCCEEDED(hr))
+          break;
+        else
+          FreeLibrary(hDIADll);
       }
     }
   }
@@ -656,7 +666,7 @@ sBool PDBFileReader::ReadDebugInfo(sChar *fileName,DebugInfo &to)
         Session->Release();
       }
       else
-	fprintf(stderr,"  failed to open DIA session\n");
+        fprintf(stderr,"  failed to open DIA session\n");
     }
     else
       fprintf(stderr,"  failed to load debug symbols (PDB not found)\n");

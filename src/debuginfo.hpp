@@ -7,9 +7,15 @@
 #define __DEBUGINFO_HPP__
 
 #include "types.hpp"
-#include <map>
+#include <unordered_map>
 
 using std::string;
+
+// tsafin - we do not care about functions stats and namespaces stats. For a while
+#undef  ENABLE_FUNCTIONS
+#define ENABLE_MODULES
+#undef  ENABLE_TEMPLATES
+#undef  ENABLE_NAMESPACES
 
 /****************************************************************************/
 
@@ -37,8 +43,12 @@ struct DISymbol
 {
   sInt name;
   sInt mangledName;
+#ifdef ENABLE_NAMESPACE
   sInt NameSpNum;
+#endif
+#ifdef ENABLE_MODULES
   sInt objFileNum;
+#endif
   sU32 VA;
   sU32 Size;
   sInt Class;
@@ -53,20 +63,23 @@ struct TemplateSymbol
 
 class DebugInfo
 {
-  typedef std::vector<string>	StringByIndexVector;
-  typedef std::map<string,sInt>	IndexByStringMap;
-
-  StringByIndexVector m_StringByIndex;
-  IndexByStringMap  m_IndexByString;
+  std::vector<string> m_StringByIndex;
+  std::unordered_map<string, sInt>  m_IndexByString;
   sU32 BaseAddress;
 
   sU32 CountSizeInClass(sInt type) const;
 
 public:
-  sArray<DISymbol>  Symbols;
-  sArray<TemplateSymbol>  Templates;
-  sArray<DISymFile> m_Files;
-  sArray<DISymNameSp> NameSps;
+  std::vector<DISymbol>  Symbols;
+#ifdef ENABLE_TEMPLATES
+  std::vector<TemplateSymbol>  Templates;
+#endif
+#ifdef ENABLE_MODULES
+  std::vector<DISymFile> m_Files;
+#endif
+#ifdef ENABLE_NAMESPACE
+  std::vector<DISymNameSp> NameSps;
+#endif
 
   void Init();
   void Exit();
@@ -78,15 +91,21 @@ public:
 
   void FinishedReading();
 
+#ifdef ENABLE_MODULES
   sInt GetFile( sInt fileName );
   sInt GetFileByName( sChar *objName );
+#endif
 
+#ifdef ENABLE_NAMESPACE
   sInt GetNameSpace(sInt name);
   sInt GetNameSpaceByName(sChar *name);
+#endif
   
   void StartAnalyze();
   void FinishAnalyze();
+#if 0
   sBool FindSymbol(sU32 VA,DISymbol **sym);
+#endif
 
   std::string WriteReport();
 };

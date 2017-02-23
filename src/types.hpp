@@ -20,8 +20,6 @@ typedef double sF64;
 typedef unsigned int sU32;
 typedef bool sBool;
 
-#define sArray std::vector
-
 inline void sCopyString( sChar* a, size_t a_len, const sChar* b, int b_len )
 {
 	if (strncpy_s( a, a_len, b, b_len ) != 0) {
@@ -29,11 +27,3 @@ inline void sCopyString( sChar* a, size_t a_len, const sChar* b, int b_len )
 	}
 }
 
-#define sCopyMem memcpy
-#define sFindString strstr
-#define sSPrintF _snprintf
-#define sGetStringLen strlen
-#define sCmpStringI stricmp
-#define sAppendString strncat
-#define sSwap std::swap
-#define sVERIFY assert
