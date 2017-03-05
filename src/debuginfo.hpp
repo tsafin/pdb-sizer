@@ -76,6 +76,7 @@ public:
 #endif
 #ifdef ENABLE_MODULES
   std::vector<DISymFile> m_Files;
+  std::unordered_map<sInt, sInt>  m_FileIndex;
 #endif
 #ifdef ENABLE_NAMESPACE
   std::vector<DISymNameSp> NameSps;

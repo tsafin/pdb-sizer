@@ -167,16 +167,24 @@ void DebugInfo::FinishedReading()
 #ifdef ENABLE_MODULES
 sInt DebugInfo::GetFile( sInt fileName )
 {
+#if 0
   for( sInt i=0;i<m_Files.size();i++ )
     if( m_Files[i].fileName == fileName )
       return i;
+#else
+  auto iter = m_FileIndex.find(fileName);
+  if (iter != m_FileIndex.end())
+    return iter->second;
+#endif
 
   m_Files.push_back( DISymFile() );
   DISymFile *file = &m_Files.back();
   file->fileName = fileName;
   file->codeSize = file->dataSize = 0;
+  sInt i = m_Files.size() - 1;
+  m_FileIndex[fileName] = i;
 
-  return m_Files.size() - 1;
+  return i;
 }
 
 sInt DebugInfo::GetFileByName( sChar *objName )
@@ -362,6 +370,7 @@ std::string DebugInfo::WriteReport()
 
   Report.reserve(16384); // start out with 16k space
 
+#ifdef ENABLE_FUNCTIONS
   // symbols
   sAppendPrintF(Report,"Functions by size (kilobytes):\n");
   std::sort(Symbols.begin(),Symbols.end(),symSizeComp);
@@ -382,6 +391,7 @@ std::string DebugInfo::WriteReport()
 #endif
       );
   }
+#endif
 
 #ifdef ENABLE_TEMPLATES
   // templates
